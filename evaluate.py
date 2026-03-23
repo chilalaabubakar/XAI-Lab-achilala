@@ -65,7 +65,7 @@ def evaluate():
         print(f"Waiting for model {config.MODEL_PATH}...")
         time.sleep(5)
 
-    # df = config.load_data()
+    df = config.load_data()
 
     # Drop gender from X if disabled
     drop_cols = [config.TARGET]
@@ -76,7 +76,7 @@ def evaluate():
     y = config.encode_target(df[config.TARGET])
 
     # Sensitive feature only if gender is enabled
-    # sensitive = df[config.PROTECTED_ATTR] if config.WITH_GENDER else None
+    sensitive = df[config.PROTECTED_ATTR] if config.WITH_GENDER else None
 
     # Train/test split
     if config.WITH_GENDER:
