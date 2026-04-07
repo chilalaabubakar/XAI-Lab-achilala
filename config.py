@@ -2,7 +2,7 @@ import os
 import pandas as pd
 
 # Paths
-DATA_PATH = "credit_dataset1.csv"  # Ensure this file is in your project root
+DATA_PATH = "data/credit_dataset1.csv"  # Ensure this file is in your project root
 MODEL_DIR = "models"
 MODEL_PATH = os.path.join(MODEL_DIR, "model.joblib")
 VIZ_DIR = "visualization"
