@@ -1,9 +1,8 @@
-# evaluate.py
 import os
-import shap
 import time
 import joblib
-import numpy as np
+import shap
+import mlflow
 import matplotlib.pyplot as plt
 from lime.lime_tabular import LimeTabularExplainer
 from sklearn.model_selection import train_test_split
@@ -29,8 +28,6 @@ from fairlearn.metrics import (
     false_negative_rate,
 )
 
-
-# Plot configuration
 def setup_plots():
     plt.rcParams.update({
         "figure.figsize": (8, 6),
@@ -42,10 +39,8 @@ def setup_plots():
         "grid.alpha": 0.3,
     })
 
-
 def ensure_dirs():
     os.makedirs(config.VIZ_DIR, exist_ok=True)
-
 
 def save_fig(name):
     path = os.path.join(config.VIZ_DIR, f"{name}.png")
@@ -54,20 +49,16 @@ def save_fig(name):
     plt.close()
     print(f"Saved: {path}")
 
-
-# Evaluation pipeline
 def evaluate():
     setup_plots()
     ensure_dirs()
 
-    # Wait for training container
     while not os.path.exists(config.MODEL_PATH):
         print(f"Waiting for model {config.MODEL_PATH}...")
         time.sleep(5)
 
     df = config.load_data()
 
-    # Drop gender from X if disabled
     drop_cols = [config.TARGET]
     if not config.WITH_GENDER:
         drop_cols.append("Sex")
@@ -75,10 +66,8 @@ def evaluate():
     X = df.drop(columns=drop_cols)
     y = config.encode_target(df[config.TARGET])
 
-    # Sensitive feature only if gender is enabled
     sensitive = df[config.PROTECTED_ATTR] if config.WITH_GENDER else None
 
-    # Train/test split
     if config.WITH_GENDER:
         X_train, X_test, y_train, y_test, s_train, s_test = train_test_split(
             X, y, sensitive,
@@ -94,12 +83,10 @@ def evaluate():
             random_state=config.RANDOM_STATE,
         )
 
-    # Load trained pipeline
     pipeline = joblib.load(config.MODEL_PATH)
     preprocessor = pipeline.named_steps["preprocessor"]
     model = pipeline.named_steps["model"]
 
-    # Predictions
     y_pred = pipeline.predict(X_test)
     y_prob = pipeline.predict_proba(X_test)[:, 1]
 
@@ -115,11 +102,16 @@ def evaluate():
     roc_auc = auc(fpr, tpr)
     metrics = {
         "Accuracy": accuracy_score(y_test, y_pred),
-        "F1 (Macro)": f1_score(y_test, y_pred, average="macro"),
+        "F1_Macro": f1_score(y_test, y_pred, average="macro"),
         "Precision": precision_score(y_test, y_pred),
         "Recall": recall_score(y_test, y_pred),
-        "ROC AUC": roc_auc,
+        "ROC_AUC": roc_auc,
     }
+
+    # Log metrics to MLflow
+    mlflow.set_experiment("Credit_Risk_Assessment")
+    with mlflow.start_run():
+        mlflow.log_metrics(metrics)
 
     plt.bar(metrics.keys(), metrics.values())
     plt.ylim(0, 1)
@@ -127,9 +119,7 @@ def evaluate():
     plt.title("Model Performance Metrics")
     save_fig("metrics_bar")
 
-    # ============================
-    # Fairness Analysis (ONLY if gender is used)
-    # ============================
+    # Fairness Analysis
     if config.WITH_GENDER:
         mf = MetricFrame(
             metrics={
@@ -142,37 +132,22 @@ def evaluate():
             sensitive_features=s_test,
         )
 
-        dp_diff = demographic_parity_difference(
-            y_test, y_pred, sensitive_features=s_test
-        )
-        eo_diff = equalized_odds_difference(
-            y_test, y_pred, sensitive_features=s_test
-        )
+        dp_diff = demographic_parity_difference(y_test, y_pred, sensitive_features=s_test)
+        eo_diff = equalized_odds_difference(y_test, y_pred, sensitive_features=s_test)
 
         fairness_results = {
-            "Demographic Parity Difference": dp_diff,
-            "Equalized Odds Difference": eo_diff,
-            "Selection Rate Difference": (
-                mf.by_group["selection_rate"].max()
-                - mf.by_group["selection_rate"].min()
-            ),
-            "FPR Difference": (
-                mf.by_group["false_positive_rate"].max()
-                - mf.by_group["false_positive_rate"].min()
-            ),
-            "FNR Difference": (
-                mf.by_group["false_negative_rate"].max()
-                - mf.by_group["false_negative_rate"].min()
-            ),
+            "Demographic Parity Diff": dp_diff,
+            "Equalized Odds Diff": eo_diff,
+            "Selection Rate Diff": mf.by_group["selection_rate"].max() - mf.by_group["selection_rate"].min(),
+            "FPR Diff": mf.by_group["false_positive_rate"].max() - mf.by_group["false_positive_rate"].min(),
+            "FNR Diff": mf.by_group["false_negative_rate"].max() - mf.by_group["false_negative_rate"].min(),
         }
 
-        # Group-wise fairness plot
         mf.by_group.plot(kind="bar")
         plt.ylabel("Metric Value")
         plt.title("Group-wise Fairness Metrics")
         save_fig("fairness_group_metrics")
 
-        # Overall fairness disparities
         plt.bar(fairness_results.keys(), fairness_results.values())
         plt.axhline(0.1, linestyle="--", color="red", label="Fairness threshold")
         plt.ylabel("Difference")
@@ -183,46 +158,32 @@ def evaluate():
     else:
         print("Gender disabled — skipping fairness evaluation and plots.")
 
-    # ============================
     # SHAP Analysis
-    # ============================
     X_test_t = preprocessor.transform(X_test)
     feature_names = preprocessor.get_feature_names_out()
-
     explainer = shap.TreeExplainer(model.get_booster())
     shap_values = explainer.shap_values(X_test_t)
 
-    shap.summary_plot(
-        shap_values,
-        X_test_t,
-        feature_names=feature_names,
-        show=False
-    )
+    shap.summary_plot(shap_values, X_test_t, feature_names=feature_names, show=False)
     plt.title("SHAP Feature Importance")
     save_fig("shap_summary")
 
-    # ============================
     # LIME Analysis
-    # ============================
     lime_explainer = LimeTabularExplainer(
         training_data=preprocessor.transform(X_train),
         feature_names=feature_names.tolist(),
         class_names=["Bad", "Good"],
         mode="classification",
     )
-
     exp = lime_explainer.explain_instance(
         preprocessor.transform(X_test)[0],
         model.predict_proba,
         num_features=10,
     )
-
     exp.as_pyplot_figure()
     plt.title("LIME Local Explanation")
     save_fig("lime_explanation")
-
     print("Evaluation complete. All applicable visualizations saved.")
-
 
 if __name__ == "__main__":
     evaluate()
