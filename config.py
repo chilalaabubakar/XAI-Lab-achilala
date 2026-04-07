@@ -8,7 +8,7 @@ MODEL_PATH = os.path.join(MODEL_DIR, "model.joblib")
 VIZ_DIR = "visualization"
 
 # Dataset Configurations
-TARGET = "Label"
+TARGET = "Risk"
 PROTECTED_ATTR = "Sex"
 WITH_GENDER = True
 RANDOM_STATE = 42
