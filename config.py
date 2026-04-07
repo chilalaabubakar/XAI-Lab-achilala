@@ -1,55 +1,82 @@
+
 import os
 import pandas as pd
 
 # Paths
-DATA_PATH = "data/credit_dataset1.csv"  # Path configured for dataset 1
-MODEL_DIR = "model"
-VIZ_DIR = "visualizations"
-MODEL_PATH = os.path.join(MODEL_DIR, "xgb_credit_model1.pkl")
+DATA_PATH = "credit_dataset1.csv"  # Ensure this file is in your project root
+MODEL_DIR = "models"
+MODEL_PATH = os.path.join(MODEL_DIR, "model.joblib")
+VIZ_DIR = "visualization"
+
+# Dataset Configurations
+TARGET = "Label"
+PROTECTED_ATTR = "Sex"
+WITH_GENDER = True
 RANDOM_STATE = 42
 
-# TODO: Set to false, if instructed
-WITH_GENDER = True
-
-# Data schema
-TARGET = "Risk"
-PROTECTED_ATTR = "Sex" if WITH_GENDER else None
-
-# Base categorical columns
-_BASE_CATEGORICAL_COLS = [
-    "Sex",
-    "Housing",
-    "Saving accounts",
-    "Purpose",
+# Feature Definitions based on the German Credit Data
+CATEGORICAL_COLS = [
+    "Sex", 
+    "Housing", 
+    "Saving_accounts", 
+    "Checking_account", 
+    "Purpose"
 ]
-
-CATEGORICAL_COLS = (
-    _BASE_CATEGORICAL_COLS
-    if WITH_GENDER
-    else [c for c in _BASE_CATEGORICAL_COLS if c != "Sex"]
-)
 
 NUMERICAL_COLS = [
-    "Age",
-    "Job",
-    "Checking account",
-    "Credit amount",
-    "Duration",
+    "Age", 
+    "Job", 
+    "Credit_amount", 
+    "Duration"
 ]
 
+def load_data():
+    """Loads the dataset and ensures columns match the required schema."""
+    if not os.path.exists(DATA_PATH):
+        raise FileNotFoundError(f"Dataset not found at {DATA_PATH}import os
+import pandas as pd
+
+# Paths
+DATA_PATH = "credit_dataset1.csv"  # Ensure this file is in your project root
+MODEL_DIR = "models"
+MODEL_PATH = os.path.join(MODEL_DIR, "model.joblib")
+VIZ_DIR = "visualization"
+
+# Dataset Configurations
+TARGET = "Label"
+PROTECTED_ATTR = "Sex"
+WITH_GENDER = True
+RANDOM_STATE = 42
+
+# Feature Definitions based on the German Credit Data
+CATEGORICAL_COLS = [
+    "Sex", 
+    "Housing", 
+    "Saving_accounts", 
+    "Checking_account", 
+    "Purpose"
+]
+
+NUMERICAL_COLS = [
+    "Age", 
+    "Job", 
+    "Credit_amount", 
+    "Duration"
+]
 
 def load_data():
+    """Loads the dataset and ensures columns match the required schema."""
+    if not os.path.exists(DATA_PATH):
+        raise FileNotFoundError(f"Dataset not found at {DATA_PATH}. Please ensure it is in the root directory.")
     df = pd.read_csv(DATA_PATH)
-    validate_schema(df)
     return df
 
+def encode_target(y):
+    """Encodes the Good/Bad string labels into 1/0 numeric binary format."""
+    return y.map({"Good": 1, "Bad": 0}).astype(int).")
+    df = pd.read_csv(DATA_PATH)
+    return df
 
-def encode_target(y: pd.Series) -> pd.Series:
-    return y.map({"Good": 1, "Bad": 0})
-
-
-def validate_schema(df: pd.DataFrame) -> None:
-    required = set([TARGET] + CATEGORICAL_COLS + NUMERICAL_COLS)
-    missing = [c for c in required if c not in df.columns]
-    if missing:
-        raise ValueError(f"Missing required columns: {missing}")
+def encode_target(y):
+    """Encodes the Good/Bad string labels into 1/0 numeric binary format."""
+    return y.map({"Good": 1, "Bad": 0}).astype(int)
