@@ -25,7 +25,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, precision_score, recall_score
 
 # ── Configuration ──────────────────────────────────────────────────────────────
-DATASET_ID = os.environ.get("DATASET_ID", "1")          # "1" or "2"
+DATASET_ID = os.environ.get("DATASET_ID", "2")          # "1" or "2"
 SHARED_VOLUME = os.environ.get("SHARED_VOLUME", "/shared-volume")
 
 DATA_FILES = {
