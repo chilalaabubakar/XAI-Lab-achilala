@@ -3,7 +3,7 @@ import pandas as pd
 
 # Paths
 # Note: If your file is still inside the data folder, change this to "data/credit_dataset1.csv"
-DATA_PATH = "data/credit_dataset1.csv"  
+DATA_PATH = "data/credit_dataset2.csv"  
 MODEL_DIR = "models"
 MODEL_PATH = os.path.join(MODEL_DIR, "model.joblib")
 VIZ_DIR = "visualization"
